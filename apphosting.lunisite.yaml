@@ -1,0 +1,13 @@
+runConfig:
+  minInstances: 0
+  maxInstances: 4
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 512
+  
+env:
+  - variable: GEMINI_API_KEY
+    secret: google-api-key # Configurar en Firebase App Hosting Secrets
+    availability:
+      - BUILD
+      - RUNTIME

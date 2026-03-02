@@ -1,0 +1,91 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.role == 'admin';
+    }
+
+    function isSupport() {
+      return isAuthenticated() && request.auth.token.role == 'support';
+    }
+
+    function isSupervisorSupport() {
+      return isAuthenticated() && request.auth.token.role == 'supervisor_support';
+    }
+
+    function isContentCreator() {
+      return isAuthenticated() && request.auth.token.role == 'content_creator';
+    }
+
+    function isStaff() {
+      return isAdmin() || isSupport() || isSupervisorSupport() || isContentCreator();
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Publicly accessible content (Images, etc.)
+    match /content/{allPaths=**} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+    
+    match /content_blocks/{allPaths=**} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+    
+    match /professors/{allPaths=**} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // User-specific files, e.g., avatars
+    match /users/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isStaff() || isOwner(userId);
+    }
+
+    // Podcasts - Public read (for players), staff write
+    match /podcasts/{allPaths=**} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+    
+    // Audio Classes
+    match /audio_classes/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isStaff();
+    }
+    
+    // PDF uploads
+    match /pdfs/{allPaths=**} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+    
+    // Quiz Assets
+    match /quiz_questions/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isStaff();
+    }
+    
+    match /quiz_options/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isStaff();
+    }
+
+    // Default for other paths
+    match /{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isStaff();
+    }
+  }
+}

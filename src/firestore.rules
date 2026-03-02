@@ -1,0 +1,130 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- Helper Functions ---
+    function isAuth() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuth() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      // Check if the user document exists and if the isAdmin field is true.
+      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // --- User Profiles ---
+    match /users/{userId} {
+      // Anyone authenticated can view user profiles for rankings, etc.
+      allow list, read: if isAuth();
+      
+      // A user can only create their own profile.
+      allow create: if isOwner(userId);
+
+      // A user can update their own profile, but cannot make themselves an admin or change their tokens.
+      // Admins can update any field.
+      allow update: if (isOwner(userId) && !('isAdmin' in request.resource.data && request.resource.data.isAdmin != resource.data.isAdmin) && !('examTokens' in request.resource.data && request.resource.data.examTokens != resource.data.examTokens)) || isAdmin();
+    }
+    
+    // --- Content (Videos, Articles, Quizzes) ---
+    match /content/{contentId} {
+      allow read: if isAuth();
+      // Only admins can create, update, or delete content.
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- Exams ---
+    match /exams/{examId} {
+      allow read: if isAuth();
+      // Only admins can create, update, or delete exams.
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // --- Announcements ---
+    match /announcements/{announcementId} {
+        allow read: if isAuth();
+        allow write: if isAdmin();
+    }
+    
+    // --- Subjects ---
+    match /subjects/{subjectId} {
+        allow read: if isAuth();
+        allow write: if isAdmin();
+    }
+
+    // --- Avatars ---
+    match /avatars/{avatarId} {
+        allow read: if isAuth();
+        allow write: if isAdmin();
+    }
+
+    // --- Daily Challenges ---
+    match /dailyChallenges/{challengeId} {
+      allow read: if isAuth();
+      allow write: if isAdmin(); // Only admins can create/edit challenges
+    }
+
+    // --- User Challenge Attempts ---
+    match /userChallengeAttempts/{attemptId} {
+      allow read: if isAuth(); // Allow all users to read for ranking
+      // Users can only create/update their own attempt
+      allow write: if isAuth() && request.auth.uid == request.resource.data.userId;
+    }
+    
+    // --- Settings (Theme, General) ---
+    match /settings/{settingId} {
+      allow read: if true; // Publicly readable
+      allow write: if isAdmin();
+    }
+
+    // --- Notifications (Read by users, sent by admin) ---
+    match /notifications/{notificationId} {
+      allow read: if isAuth();
+      allow write: if isAdmin(); // Only admins can create notifications
+    }
+
+    // --- Advertisements ---
+    match /advertisements/{adId} {
+      allow read: if isAuth(); // Authenticated users can read ads
+      allow write: if isAdmin(); // Only admins can create/edit/delete ads
+    }
+    
+    // --- Guides ---
+    match /guides/{guideId} {
+      allow read: if isAuth(); // Authenticated users can read guides
+      allow write: if isAdmin(); // Only admins can create/edit/delete guides
+    }
+    
+    // --- Challenges (Duels) ---
+    match /challenges/{challengeId} {
+      // Users can read challenges they are part of
+      allow read: if isAuth() && (
+        request.auth.uid in resource.data.participants ||
+        isAdmin()
+      );
+      
+      // Users can create challenges
+      allow create: if isAuth() && request.auth.uid == request.resource.data.challengerId;
+      
+      // Users can update challenges they are part of (to accept/reject/complete)
+      allow update: if isAuth() && (
+        request.auth.uid in resource.data.participants ||
+        isAdmin()
+      );
+      
+      // Only admins can delete challenges
+      allow delete: if isAdmin();
+    }
+    
+    // --- User-specific subcollections ---
+    match /users/{userId}/{collection}/{docId} {
+      // A user can only write to their own subcollections (readNotifications, deletedNotifications)
+      allow write: if isOwner(userId);
+      // Reading their own subcollections is covered by the `list, read` on /users/{userId}
+    }
+  }
+}

@@ -1,0 +1,15 @@
+[
+  {
+    "origin": [
+      "https://studio--studio-5437783532-5f953.us-central1.hosted.app",
+      "https://luni.site",
+      "https://*.luni.site",
+      "http://localhost:3000"
+    ],
+    "method": [
+      "GET",
+      "HEAD"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]

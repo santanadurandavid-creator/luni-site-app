@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Usuarios - Luni</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Gestión de Usuarios</h1>
+            <p>Carga el archivo JSON exportado para gestionar y filtrar usuarios.</p>
+        </header>
+
+        <section class="upload-section">
+            <input type="file" id="jsonFile" accept=".json" />
+            <button id="loadBtn" disabled>Cargar Datos</button>
+        </section>
+
+        <section class="controls" id="controls" style="display: none;">
+            <div class="filter-section">
+                <input type="text" id="searchInput" placeholder="Buscar por nombre o email...">
+                <select id="premiumFilter">
+                    <option value="">Todos los Premium</option>
+                    <option value="true">Premium Activo</option>
+                    <option value="false">No Premium</option>
+                </select>
+                <select id="roleFilter">
+                    <option value="">Todos los Roles</option>
+                    <option value="normal">Normal</option>
+                    <option value="support">Soporte</option>
+                    <option value="supervisor_support">Supervisor Soporte</option>
+                    <option value="admin">Admin</option>
+                </select>
+                <button id="exportUpdated">Exportar JSON Actualizado</button>
+            </div>
+
+            <div class="column-toggle">
+                <h3>Mostrar/Ocultar Columnas</h3>
+                <label><input type="checkbox" data-column="name" checked> Nombre</label>
+                <label><input type="checkbox" data-column="email" checked> Email</label>
+                <label><input type="checkbox" data-column="phone" checked> Teléfono</label>
+                <label><input type="checkbox" data-column="examType" checked> Área</label>
+                <label><input type="checkbox" data-column="premiumActive" checked> Premium Activo</label>
+                <label><input type="checkbox" data-column="premiumPlan" checked> Plan Premium</label>
+                <label><input type="checkbox" data-column="examsTakenThisPeriod" checked> Exámenes Tomados</label>
+                <label><input type="checkbox" data-column="quizzesCompleted" checked> Quizzes Completados</label>
+                <label><input type="checkbox" data-column="role" checked> Rol</label>
+                <label><input type="checkbox" data-column="isBanned" checked> Bloqueado</label>
+                <label><input type="checkbox" data-column="followUpCall" checked> Seguimiento Llamada</label>
+                <label><input type="checkbox" data-column="followUpMessage" checked> Seguimiento Mensaje</label>
+                <label><input type="checkbox" data-column="comments" checked> Comentarios</label>
+                <label><input type="checkbox" data-column="result" checked> Resultado</label>
+            </div>
+        </section>
+
+        <section class="table-section" id="tableSection" style="display: none;">
+            <table id="usersTable">
+                <thead>
+                    <tr>
+                        <th data-column="name">Nombre</th>
+                        <th data-column="email">Email</th>
+                        <th data-column="phone">Teléfono</th>
+                        <th data-column="examType">Área</th>
+                        <th data-column="premiumActive">Premium Activo</th>
+                        <th data-column="premiumPlan">Plan Premium</th>
+                        <th data-column="examsTakenThisPeriod">Exámenes Tomados</th>
+                        <th data-column="quizzesCompleted">Quizzes Completados</th>
+                        <th data-column="role">Rol</th>
+                        <th data-column="isBanned">Bloqueado</th>
+                        <th data-column="followUpCall">Seguimiento Llamada</th>
+                        <th data-column="followUpMessage">Seguimiento Mensaje</th>
+                        <th data-column="comments">Comentarios</th>
+                        <th data-column="result">Resultado</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+            <div id="noData">No hay datos para mostrar.</div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,290 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.role == 'admin';
+    }
+
+    function isNormalUser() {
+      return isAuthenticated() && request.auth.token.role == 'normal';
+    }
+
+    function isSupport() {
+      return isAuthenticated() && request.auth.token.role == 'support';
+    }
+
+    function isSupervisorSupport() {
+      return isAuthenticated() && request.auth.token.role == 'supervisor_support';
+    }
+
+    function isContentCreator() {
+      return isAuthenticated() && request.auth.token.role == 'content_creator';
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isSupportOrAbove() {
+      return isSupport() || isSupervisorSupport() || isAdmin() || isContentCreator();
+    }
+
+    // ============================================
+    // PUBLIC COLLECTIONS (No authentication required)
+    // ============================================
+
+    // Podcasts - Public read, authenticated write
+    match /podcasts/{podcastId} {
+      allow read: if true;
+      allow write: if isSupportOrAbove();
+    }
+
+    // ============================================
+    // USER COLLECTIONS
+    // ============================================
+
+    // Users - All authenticated users can read, users can update their own (with restrictions)
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (
+        isOwner(userId) && 
+        // Users cannot modify these protected fields
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'premiumUntil', 
+          'premiumPlan', 
+          'customExamsAllowed', 
+          'examTokens', 
+          'miniTokens',
+          'role',
+          'banned',
+          'banReason'
+        ])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Exam Results - Users can read/write their own, admin has full access
+    match /examResults/{resultId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+    }
+
+    // User Progress - Users can read/write their own
+    match /userProgress/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+
+    // User Study Plans - Users can read/write their own
+    match /studyPlans/{planId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+    }
+
+    // ============================================
+    // CONTENT COLLECTIONS
+    // ============================================
+
+    // Content - Public read for landing, authenticated read for all, admin write
+    match /content/{contentId} {
+      allow read: if resource.data.showInLanding == true || isAuthenticated();
+      allow write: if isSupportOrAbove();
+    }
+
+    // Quizzes - Authenticated users can read, admin can write
+    match /quizzes/{quizId} {
+      allow read: if isAuthenticated();
+      allow write: if isSupportOrAbove();
+    }
+
+    // Classes - Authenticated users can read, admin can write
+    match /classes/{classId} {
+      allow read: if isAuthenticated();
+      allow write: if isSupportOrAbove();
+    }
+
+    // Updates/Announcements - Authenticated users can read, admin can write
+    match /updates/{updateId} {
+      allow read: if isAuthenticated();
+      allow write: if isSupportOrAbove();
+    }
+
+    // Guides - Authenticated users can read, admin can write
+    match /guides/{guideId} {
+      allow read: if isAuthenticated();
+      allow write: if isSupportOrAbove();
+    }
+
+    // Exams - Authenticated users can read, admin can write
+    match /exams/{examId} {
+      allow read: if isAuthenticated();
+      allow write: if isSupportOrAbove();
+    }
+
+    // ============================================
+    // ADMIN COLLECTIONS
+    // ============================================
+
+    // Notifications - Admin only
+    match /notifications/{notificationId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Settings - Public read for landing page, admin for everything else
+    match /settings/{settingId} {
+      allow read: if settingId == 'landingPage' || settingId == 'theme' || isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Avatars - Authenticated users can read, admin can write
+    match /avatars/{avatarId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Daily Challenges - Authenticated users can read, admin can write
+    match /dailyChallenges/{challengeId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Ads Configuration - Admin only
+    match /ads/{adId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================
+    // SUPPORT COLLECTIONS
+    // ============================================
+
+    // Support Tickets - Users can read/write their own, support team can read/write all
+    match /supportTickets/{ticketId} {
+      allow read: if isSupportOrAbove() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated();
+      allow update: if isSupportOrAbove() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // Support Messages - Related to support tickets
+    match /supportTickets/{ticketId}/messages/{messageId} {
+      allow read: if isSupportOrAbove() || (isAuthenticated() && get(/databases/$(database)/documents/supportTickets/$(ticketId)).data.userId == request.auth.uid);
+      allow create: if isAuthenticated();
+      allow update, delete: if isSupportOrAbove();
+    }
+
+    // CSAT (Customer Satisfaction) - Support supervisors and admin can read
+    match /csat/{csatId} {
+      allow read: if isSupervisorSupport() || isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+
+    // App Ratings - Users can create, admin can read all
+    match /ratings/{ratingId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // ============================================
+    // GAMIFICATION COLLECTIONS
+    // ============================================
+
+    // User Achievements - Users can read their own, admin can write
+    match /achievements/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Leaderboard - All authenticated users can read
+    match /leaderboard/{entryId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Duels/Challenges - Users can read/write their own challenges
+    match /duels/{duelId} {
+      allow read: if isAuthenticated() && (
+        resource.data.challengerId == request.auth.uid || 
+        resource.data.opponentId == request.auth.uid || 
+        isAdmin()
+      );
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        resource.data.challengerId == request.auth.uid || 
+        resource.data.opponentId == request.auth.uid
+      ) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ============================================
+    // ANALYTICS & LOGS (Admin only)
+    // ============================================
+
+    match /analytics/{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    match /logs/{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================
+    // USER TOKENS & SUBSCRIPTIONS
+    // ============================================
+
+    // FCM Tokens - Users can manage their own tokens
+    match /fcmTokens/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+
+    // User Subscriptions - Users can read their own, admin can manage
+    match /subscriptions/{subscriptionId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // ============================================
+    // SALES TRACKING
+    // ============================================
+
+    // Sales - Sales users can create and delete their own sales, admin can read all
+    match /sales/{saleId} {
+      allow read: if isAuthenticated() && (
+        request.auth.token.role == 'venta' || 
+        isAdmin() || 
+        isSupervisorSupport()
+      );
+      allow create: if isAuthenticated() && (
+        request.auth.token.role == 'venta' && 
+        request.resource.data.sellerId == request.auth.uid
+      );
+      allow delete: if isAuthenticated() && (
+        (request.auth.token.role == 'venta' && resource.data.sellerId == request.auth.uid) ||
+        isAdmin()
+      );
+      allow update: if isAdmin();
+    }
+
+    // ============================================
+    // DEFAULT DENY
+    // ============================================
+    
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
